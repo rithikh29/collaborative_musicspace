@@ -1,0 +1,137 @@
+/* Simple styles for Collaborative Music Space */
+
+/* Reset & Box Sizing */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Body */
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #121212;
+    color: #dacdcd;
+    display: flex;
+    transition: background-color 0.3s, color 0.3s;
+  }
+  
+  /* Login Overlay */
+  #loginContainer {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(18,18,18,0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+  }
+  
+  /* Sidebar */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: 220px;
+    height: 100vh;
+    background: #111;
+    padding-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .sidebar h2 {
+    color: #dacdcd;
+    margin-bottom: 2rem;
+  }
+  .sidebar a {
+    width: 100%;
+    padding: 0.75rem 0;
+    text-align: center;
+    color: #dacdcd;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+  .sidebar a:hover {
+    background: #333;
+  }
+  
+  /* Main Content */
+  .main-content {
+    margin-left: 220px;
+    padding: 2rem;
+    flex: 1;
+    background-color: #121212;
+  }
+  section {
+    margin-bottom: 2rem;
+  }
+  
+  /* Album Cards */
+  .album-card {
+    background: #d6cdcd;
+    border: 1px solid #b6aeae;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .album-card:hover {
+    transform: scale(1.03);
+  }
+  
+  /* Buttons */
+  .btn-outline-info {
+    color: #00bcd4;
+    border-color: #00bcd4;
+  }
+  .like-btn {
+    cursor: pointer;
+    color: inherit;
+  }
+  .like-btn.liked {
+    color: red;
+  }
+  .share-btn {
+    cursor: pointer;
+    color: #00bcd4;
+    margin-right: 0.5rem;
+  }
+  
+  /* Profile Tool */
+  .profile-tool {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+  }
+  .profile-tool button {
+    font-size: 1.25rem;
+  }
+  
+  /* Modal Overrides */
+  .modal-content.bg-dark {
+    background-color: #1e1e1e;
+  }
+  .btn-close-white {
+    filter: invert(1);
+  }
+  
+  /* Light Theme */
+  body.light-theme {
+    background-color: #f5f5f5;
+    color: #222;
+  }
+  body.light-theme .sidebar {
+    background: #eee;
+  }
+  body.light-theme .sidebar a {
+    color: #222;
+  }
+  body.light-theme .main-content {
+    background: #fff;
+    color: #222;
+  }
+  body.light-theme .album-card {
+    background: #fafafa;
+    border-color: #ccc;
+  }
+  

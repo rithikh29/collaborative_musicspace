@@ -1,2 +1,6 @@
-# collaborative_musicspace
-Collaborative Music Space is a cloud-based web music platform hosted using AWS S3 for storage and CloudFront for fast global streaming. Built with HTML, CSS, and JavaScript, it features playlists, song uploads, and sharing options, offering a smooth, secure, and scalable audio experience with Google Sign-In integration.
+# simple-music-app
+simple-music-app
+
+
+![image](https://user-images.githubusercontent.com/39345855/167300109-f2fc57fc-d9be-4e1a-887e-5076d0fa2559.png)
+

@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Collaborative Music Space</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; display: flex; font-family: Arial, sans-serif; transition: background-color .3s, color .3s; }
+    /* LOGIN OVERLAY */
+    #loginContainer { position: absolute; top:0; left:0; width:100%; height:100%; background:#121212; display:flex; justify-content:center; align-items:center; z-index:2000; }
+    /* PROFILE TOOL */
+    .profile-tool { position:fixed; top:10px; right:10px; z-index:1000; display:none; }
+    .profile-tool button { font-size:1.25rem; }
+    .profile-tool .dropdown-menu { position:absolute; top:40px; right:0; }
+    /* SIDEBAR */
+    .sidebar { position:fixed; top:0; left:0; width:220px; height:100vh; background:#111; padding-top:1rem; display:flex; flex-direction:column; align-items:center; }
+    .sidebar h2 { color:#dacdcd; margin-bottom:2rem; font-size:1.2rem; }
+    .sidebar a { width:100%; padding:.75rem 0; text-align:center; color:#dacdcd; text-decoration:none; font-size:1rem; transition:background .2s; }
+    .sidebar a:hover { background:#333; }
+    /* MAIN CONTENT */
+    .main-content { margin-left:220px; padding:2rem; width:calc(100% - 220px); background:#121212; color:#dacdcd; min-height:100vh; transition:background .3s, color .3s; }
+    section { margin-bottom:4rem; }
+    /* ALBUM CARDS */
+    .album-card { background:#d6cdcd; border:1px solid #b6aeae; cursor:pointer; transition:transform .2s; }
+    .album-card:hover { transform:scale(1.03); }
+    /* BUTTON STYLES */
+    .like-btn { float:right; cursor:pointer; }
+    .liked { color:red; }
+    .share-btn { float:right; margin-right:10px; cursor:pointer; color:#00bcd4; }
+    /* LIGHT THEME */
+    body.light-theme { background:#f5f5f5; color:#222; }
+    body.light-theme .main-content { background:#fff; color:#222; }
+    body.light-theme .album-card { background:#fafafa; border-color:#ccc; }
+    body.light-theme .sidebar { background:#eee; }
+    body.light-theme .sidebar a { color:#222; }
+  </style>
+</head>
+<body>
+  <!-- LOGIN OVERLAY -->
+  <div id="loginContainer">
+    <div class="col-12 col-md-4 bg-dark p-4 text-light rounded">
+      <h2 class="text-center mb-4">🎶 Login to Music Space</h2>
+      <!-- Google Sign-In -->
+      <div id="g_id_signin" class="d-grid mb-3" data-type="standard" data-size="large"></div>
+      <hr class="border-light">
+      <form id="loginForm" onsubmit="login(event)">
+        <div class="mb-3">
+          <label for="email" class="form-label">Email (@gmail.com)</label>
+          <input type="email" class="form-control" id="email" placeholder="yourname@gmail.com" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Login</button>
+        <div id="loginMessage" class="text-danger mt-2"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- PROFILE TOOL -->
+  <div class="profile-tool" id="profileTool">
+    <button class="btn btn-outline-light" onclick="toggleProfileMenu()">👤</button>
+    <div class="dropdown-menu dropdown-menu-end" id="profileMenu" style="display:none;">
+      <a class="dropdown-item" href="#">Profile</a>
+      <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#settingsModal">Settings</a>
+      <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#playlistModal">Create Playlist</a>
+      <a class="dropdown-item" href="#" onclick="signOut()">Sign Out</a>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar" style="display:none;">
+    <h2>🎵 Music Space</h2>
+    <a href="#home">Home</a>
+    <a href="#" id="themeToggle">Theme</a>
+    <a href="#" data-bs-toggle="modal" data-bs-target="#playlistModal">Create Playlist</a>
+    <a href="#" data-bs-toggle="modal" data-bs-target="#feedbackModal">Feedback</a>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content" id="mainContent" style="display:none;">
+    <section id="home">
+      <div class="container my-4">
+        <h1 class="text-center">🎵 Collaborative Music Space</h1>
+        <div id="albumSection">
+          <div class="d-flex justify-content-between align-items-center my-3">
+            <input type="text" id="albumSearchInput" class="form-control w-50" placeholder="Search Albums" onkeyup="filterAlbums()" />
+            <button class="btn btn-outline-info" onclick="showLikedSongs()">❤️ Liked Songs</button>
+          </div>
+          <div id="albumContainer" class="row"></div>
+        </div>
+        <div id="songSection" style="display:none;">
+          <div class="d-flex justify-content-between align-items-center my-3">
+            <button class="btn btn-outline-light" onclick="goBack()">← Back to Albums</button>
+            <input type="text" id="searchInput" class="form-control w-50" placeholder="Search Songs" onkeyup="filterSongs()" />
+          </div>
+          <h3 id="albumTitle"></h3>
+          <ul class="list-group" id="songList"></ul>
+        </div>
+        <div id="likedSection" style="display:none;">
+          <div class="d-flex justify-content-between align-items-center my-3">
+            <button class="btn btn-outline-light" onclick="goBackToAlbums()">← Back</button>
+            <h3>❤️ Liked Songs</h3>
+          </div>
+          <ul class="list-group" id="likedList"></ul>
+        </div>
+        <div class="fixed-bottom bg-dark p-2">
+          <audio id="audioPlayer" controls class="w-100"></audio>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- SETTINGS MODAL (Add Songs) -->
+  <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content bg-dark text-light">
+      <div class="modal-header">
+        <h5 class="modal-title" id="settingsModalLabel">⚙️ Settings - Add Songs</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addSongForm">
+          <div class="mb-3">
+            <label class="form-label">Choose Folder</label>
+            <div id="folderList" class="list-group overflow-auto" style="max-height:200px;"></div>
+          </div>
+          <div class="mb-3" id="newFolderDiv" style="display:none;">
+            <input type="text" id="newFolderName" class="form-control" placeholder="New folder name">
+          </div>
+          <div class="mb-3">
+            <input type="text" id="songTitle" class="form-control" placeholder="Song title" required>
+          </div>
+          <div class="mb-3">
+            <input type="file" id="songFile" class="form-control" accept="audio/*" required>
+          </div>
+          <div id="addSongMessage" class="text-success mb-2"></div>
+          <button type="submit" class="btn btn-success w-100">Add Song</button>
+        </form>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- PLAYLIST MODAL -->
+  <div class="modal fade" id="playlistModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl"><div class="modal-content bg-dark text-light">
+      <div class="modal-header">
+        <h5 class="modal-title">📂 Create & Manage Playlists</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-4">
+            <div class="list-group mb-2" id="playlistList"></div>
+            <button class="btn btn-secondary w-100 mb-2" onclick="startNewPlaylist()">+ New Playlist</button>
+            <div id="newPlaylistDiv" style="display:none;">
+              <input type="text" id="newPlaylistName" class="form-control mb-2" placeholder="Playlist name">
+              <button class="btn btn-success w-100" onclick="createPlaylist()">Create</button>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div id="selectSongsDiv" style="display:none;">
+              <h6>Select Songs to Add:</h6>
+              <div class="row" id="allSongsCheckboxes" style="max-height:300px; overflow:auto;"></div>
+              <button class="btn btn-primary mt-2" onclick="addToPlaylist()">Add to Playlist</button>
+            </div>
+            <div id="showPlaylistSongs" style="display:none;" class="mt-3">
+              <h6>Playlist Contents:</h6>
+              <ul class="list-group" id="playlistSongsList"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- SHARE MODAL -->
+  <div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-dark text-light">
+          <h5 class="modal-title" id="shareModalLabel">Share Song</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="list-group">
+            <a href="#" target="_blank" id="whatsappShare" class="list-group-item list-group-item-action">WhatsApp</a>
+            <a href="#" target="_blank" id="telegramShare" class="list-group-item list-group-item-action">Telegram</a>
+            <a href="#" id="emailShare" class="list-group-item list-group-item-action">Email</a>
+            <button class="btn btn-secondary w-100 mt-2" onclick="copyLink()">Copy link</button>
+            <div id="copyMessage" class="text-success mt-2" style="display:none;">Copied to clipboard!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEEDBACK MODAL -->
+  <div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content bg-dark text-light">
+      <div class="modal-header">
+        <h5 class="modal-title" id="feedbackModalLabel">✉️ Send Feedback</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="modalFeedbackForm">
+          <textarea id="modalFeedbackText" class="form-control bg-secondary text-light mb-3" rows="4" placeholder="Your feedback..."></textarea>
+          <div id="modalFeedbackMessage" class="text-success mb-2"></div>
+          <button type="submit" class="btn btn-danger w-100">Submit</button>
+        </form>
+      </div>
+    </div></div>
+  </div>
+
+
+  <!-- SCRIPTS -->
+  <script>
+    // --- GOOGLE SIGN-IN & LOGIN ---
+    window.onload = () => {
+      google.accounts.id.initialize({
+        client_id: 'YOUR_GOOGLE_CLIENT_ID',
+        callback: handleCredentialResponse,
+        ux_mode: 'popup'
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('g_id_signin'),
+        { theme:'outline', size:'large' }
+      );
+    };
+    function handleCredentialResponse(res) {
+      const payload = JSON.parse(atob(res.credential.split('.')[1]));
+      if (payload.email.toLowerCase().endsWith('@gmail.com')) loginSuccess(payload.email);
+      else alert('Please use a Gmail address.');
+    }
+    function login(e) {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      if (email.toLowerCase().endsWith('@gmail.com')) loginSuccess(email);
+      else document.getElementById('loginMessage').innerText = 'Invalid @gmail.com address.';
+    }
+    function loginSuccess(email) {
+      document.getElementById('loginContainer').style.display = 'none';
+      document.getElementById('sidebar').style.display = 'flex';
+      document.getElementById('mainContent').style.display = 'block';
+      document.getElementById('profileTool').style.display = 'block';
+      document.querySelector('#profileTool button').innerText = email.charAt(0).toUpperCase();
+      populateFolders(); populatePlaylistUI(); displayAlbums();
+    }
+    function toggleProfileMenu(){
+      let m = document.getElementById('profileMenu');
+      m.style.display = m.style.display==='block'?'none':'block';
+    }
+    document.addEventListener('click', e => {
+      if (!document.getElementById('profileTool').contains(e.target))
+        document.getElementById('profileMenu').style.display='none';
+    });
+    function signOut(){
+      google.accounts.id.disableAutoSelect();
+      document.getElementById('loginContainer').style.display='flex';
+      document.getElementById('sidebar').style.display='none';
+      document.getElementById('mainContent').style.display='none';
+      document.getElementById('profileTool').style.display='none';
+    }
+
+    // --- DATA & CORE LOGIC ---
+    const albums = [
+      {
+        title: "BEESALU",
+        image: "https://silverpalace.in/uploads/products/619601c077f53_20211111131234-removebg-preview.png",
+        songs: [
+          { name: "USARAY", url: "https://d2rl042yqesy51.cloudfront.net/BEESALU/000%20(1).m4a" },
+          { name: "UNIPAY", url: "https://d2rl042yqesy51.cloudfront.net/BEESALU/000%20(1).mp3" },
+          { name: "GAVAMATHU", url: "https://d2rl042yqesy51.cloudfront.net/BEESALU/000%20(5).mp3" },
+          { name: "KANNEERUNA KATHEYA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Kanneeruna%20Katheya.mp3" },
+          { name: "KOLATHA SOMEE", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/KOLATHA%20SOMEE.mp3" },
+          { name: "NAA KANNA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Naa%20Kanna%20Neeruna.mp3" },
+          { name: "OH ENNU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Oh%20Ennu%20Owwe.mp3" },
+          { name: "OORA BUTTU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/OORA%20BUTTU.mp3" },
+          { name: "SANTHAYA JAMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/SANTHAYA%20JAMA%20AALAY.mp3" },
+          { name: "SANTHEYA JAMMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Santheya%20Jamma.mp3" }
+        ]
+      },
+      {
+        title: "PASUNTHU",
+        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSTf8fcMZYGFP4jiqKDW5mAQh1q2eluBI1DydSpSBlUKX0xftp3uNdeFUWIK-_I7vMnlO0&usqp=CAU",
+        songs: [
+          { name: "NENAI PONTHU", url: "https://d2rl042yqesy51.cloudfront.net/PASUNTHU/02%20Nenaiponthu.mp3" },
+          { name: "OREYA MAMMA", url: "https://d2rl042yqesy51.cloudfront.net/PASUNTHU/07%20Oreya%20Mamma.mp3" },
+          { name: "KANNEERUNA KATHEYA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Kanneeruna%20Katheya.mp3" },
+          { name: "KOLATHA SOMEE", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/KOLATHA%20SOMEE.mp3" },
+          { name: "NAA KANNA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Naa%20Kanna%20Neeruna.mp3" },
+          { name: "OH ENNU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Oh%20Ennu%20Owwe.mp3" },
+          { name: "OORA BUTTU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/OORA%20BUTTU.mp3" },
+          { name: "SANTHAYA JAMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/SANTHAYA%20JAMA%20AALAY.mp3" },
+          { name: "SANTHEYA JAMMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Santheya%20Jamma.mp3" }
+        ]
+      },
+      {
+        title: "HETHAI SONGS",
+        image: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg8n5Pz7huBp5AV1nlL9cy8QuqgBpY7cc7qkRt_CXiMpiWJL8_xKEhsvbGczJ5yCGGgQyqim2U8UJSNJZA8El65iiF0lHK0Jcp7-4xo0kIxypxWMYFu1-CSPYq50He1yX0h3UFJTncKZiGJ/s1600/white+umberlla+500.jpg",
+        songs: [
+          { name: "AALA AADAGA", url: "https://d2rl042yqesy51.cloudfront.net/HETHAI/Aala%20Keru%20Aadaga.mp3" },
+          { name: "BELLE BATTE", url: "https://d2rl042yqesy51.cloudfront.net/HETHAI/Belle%20Batte.mp3" },
+          { name: "KANNEERUNA KATHEYA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Kanneeruna%20Katheya.mp3" },
+          { name: "KOLATHA SOMEE", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/KOLATHA%20SOMEE.mp3" },
+          { name: "NAA KANNA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Naa%20Kanna%20Neeruna.mp3" },
+          { name: "OH ENNU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Oh%20Ennu%20Owwe.mp3" },
+          { name: "OORA BUTTU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/OORA%20BUTTU.mp3" },
+          { name: "SANTHAYA JAMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/SANTHAYA%20JAMA%20AALAY.mp3" },
+          { name: "SANTHEYA JAMMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Santheya%20Jamma.mp3" }
+        ]
+      },
+      {
+        title: "AATA PAATU",
+        image: "https://media.assettype.com/TNIE%2Fimport%2F2016%2F10%2F21%2Foriginal%2Fbadaga-indulge.JPG",
+        songs: [
+          { name: "HULLANO HORAIYA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Hulluno Horaiya.mp3" },
+          { name: "KAALA OLLE", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Kaala%20olle.mp3" },
+          { name: "KANNEERUNA KATHEYA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Kanneeruna%20Katheya.mp3" },
+          { name: "KOLATHA SOMEE", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/KOLATHA%20SOMEE.mp3" },
+          { name: "NAA KANNA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Naa%20Kanna%20Neeruna.mp3" },
+          { name: "OH ENNU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Oh%20Ennu%20Owwe.mp3" },
+          { name: "OORA BUTTU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/OORA%20BUTTU.mp3" },
+          { name: "SANTHAYA JAMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/SANTHAYA%20JAMA%20AALAY.mp3" },
+          { name: "SANTHEYA JAMMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Santheya%20Jamma.mp3" }
+        ]
+      },
+      {
+        title: "MELODY",
+        image: "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/80/0c/d3/800cd393-d2b6-5d91-2566-a94e1f783fac/artwork.jpg/486x486bb.png",
+        songs: [
+          { name: "HULLANO HORAIYA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Hulluno Horaiya.mp3" },
+          { name: "KAALA OLLE", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Kaala%20olle.mp3" },
+          { name: "KANNEERUNA KATHEYA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Kanneeruna%20Katheya.mp3" },
+          { name: "KOLATHA SOMEE", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/KOLATHA%20SOMEE.mp3" },
+          { name: "NAA KANNA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Naa%20Kanna%20Neeruna.mp3" },
+          { name: "OH ENNU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Oh%20Ennu%20Owwe.mp3" },
+          { name: "OORA BUTTU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/OORA%20BUTTU.mp3" },
+          { name: "SANTHAYA JAMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/SANTHAYA%20JAMA%20AALAY.mp3" },
+          { name: "SANTHEYA JAMMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Santheya%20Jamma.mp3" }
+        ]
+      },
+      {
+        title: "BAJANAI",
+        image: "https://source.boomplaymusic.com/group10/M00/11/04/90d8843ce03a42c7b4cc37d4eff71b13_464_464.jpg",
+        songs: [
+          { name: "AALA AADAGA", url: "https://d2rl042yqesy51.cloudfront.net/HETHAI/Aala%20Keru%20Aadaga.mp3" },
+          { name: "BELLE BATTE", url: "https://d2rl042yqesy51.cloudfront.net/HETHAI/Belle%20Batte.mp3" },
+          { name: "KANNEERUNA KATHEYA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Kanneeruna%20Katheya.mp3" },
+          { name: "KOLATHA SOMEE", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/KOLATHA%20SOMEE.mp3" },
+          { name: "NAA KANNA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Naa%20Kanna%20Neeruna.mp3" },
+          { name: "OH ENNU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Oh%20Ennu%20Owwe.mp3" },
+          { name: "OORA BUTTU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/OORA%20BUTTU.mp3" },
+          { name: "SANTHAYA JAMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/SANTHAYA%20JAMA%20AALAY.mp3" },
+          { name: "SANTHEYA JAMMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Santheya%20Jamma.mp3" }
+        ]
+      },
+      {
+        title: "TOP HITS",
+        image: "https://yt3.googleusercontent.com/ytc/AIdro_n5zL5MYNX7vR8RN7vh_VjtgC0txWM_yYmayPys07pUOw=s900-c-k-c0x00ffffff-no-rj",
+        songs: [
+          { name: "USARAY", url: "https://d2rl042yqesy51.cloudfront.net/BEESALU/000%20(1).m4a" },
+          { name: "UNIPAY", url: "https://d2rl042yqesy51.cloudfront.net/BEESALU/000%20(1).mp3" },
+          { name: "GAVAMATHU", url: "https://d2rl042yqesy51.cloudfront.net/BEESALU/000%20(5).mp3" },
+          { name: "KANNEERUNA KATHEYA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Kanneeruna%20Katheya.mp3" },
+          { name: "KOLATHA SOMEE", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/KOLATHA%20SOMEE.mp3" },
+          { name: "NAA KANNA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Naa%20Kanna%20Neeruna.mp3" },
+          { name: "OH ENNU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Oh%20Ennu%20Owwe.mp3" },
+          { name: "OORA BUTTU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/OORA%20BUTTU.mp3" },
+          { name: "SANTHAYA JAMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/SANTHAYA%20JAMA%20AALAY.mp3" },
+          { name: "SANTHEYA JAMMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Santheya%20Jamma.mp3" }
+        ]
+      },
+      {
+        title: "TRENDING",
+        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRnKaWZQHfsXcu13MmQ0eLpYDM6oB5sEY-zp9UOEsVkfkmdFSgecCUAP15Ecno-8RygT2Q&usqp=CAU",
+        songs: [
+          { name: "HULLANO HORAIYA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Hulluno Horaiya.mp3" },
+          { name: "KAALA OLLE", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Kaala%20olle.mp3" },
+          { name: "KANNEERUNA KATHEYA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Kanneeruna%20Katheya.mp3" },
+          { name: "KOLATHA SOMEE", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/KOLATHA%20SOMEE.mp3" },
+          { name: "NAA KANNA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Naa%20Kanna%20Neeruna.mp3" },
+          { name: "OH ENNU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Oh%20Ennu%20Owwe.mp3" },
+          { name: "OORA BUTTU", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/OORA%20BUTTU.mp3" },
+          { name: "SANTHAYA JAMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/SANTHAYA%20JAMA%20AALAY.mp3" },
+          { name: "SANTHEYA JAMMA", url: "https://d2rl042yqesy51.cloudfront.net/AATAPAATU/Santheya%20Jamma.mp3" }
+        ]
+      }
+    ];
+    let likedSongs = [];
+
+    // --- FOLDERS FOR ADD SONG ---
+    let selectedFolderIndex = null;
+    function populateFolders(){
+      const list = document.getElementById('folderList');
+      list.innerHTML='';
+      albums.forEach((a,i)=>{
+        const btn = document.createElement('button');
+        btn.type='button';
+        btn.className='list-group-item list-group-item-action';
+        btn.innerText=a.title;
+        btn.onclick=()=>{
+          selectedFolderIndex=i;
+          list.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById('newFolderDiv').style.display='none';
+        };
+        list.appendChild(btn);
+      });
+      // Create New button
+      const newBtn = document.createElement('button');
+      newBtn.type='button';
+      newBtn.className='list-group-item list-group-item-action';
+      newBtn.innerText='+ Create New Folder';
+      newBtn.onclick=()=>{
+        selectedFolderIndex='new';
+        list.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+        newBtn.classList.add('active');
+        document.getElementById('newFolderDiv').style.display='block';
+      };
+      list.appendChild(newBtn);
+    }
+    document.getElementById('addSongForm').addEventListener('submit',function(e){
+      e.preventDefault();
+      const title=document.getElementById('songTitle').value.trim();
+      const file=document.getElementById('songFile').files[0];
+      const msg=document.getElementById('addSongMessage');
+      if(selectedFolderIndex===null){ msg.innerText='Select or create a folder.'; return; }
+      let idx;
+      if(selectedFolderIndex==='new'){
+        const name=document.getElementById('newFolderName').value.trim();
+        if(!name){ msg.innerText='Enter new folder name.'; return; }
+        idx = albums.push({ title:name, image:'https://via.placeholder.com/150', songs:[] })-1;
+      } else idx=selectedFolderIndex;
+      const url=URL.createObjectURL(file);
+      albums[idx].songs.push({ name:title, url });
+      msg.innerText='✅ Song added!';
+      this.reset();
+      document.getElementById('newFolderDiv').style.display='none';
+      selectedFolderIndex=null;
+      populateFolders();
+      displayAlbums();
+    });
+
+    // --- DISPLAY & NAVIGATION ---
+    function displayAlbums(){
+      const c=document.getElementById('albumContainer'); c.innerHTML='';
+      albums.forEach((a,i)=>{
+        const col=document.createElement('div');
+        col.className='col-md-4 mb-4';
+        col.innerHTML=`
+          <div class="card album-card h-100" onclick="openAlbum(${i})">
+            <img src="${a.image}" class="card-img-top" alt="${a.title}">
+            <div class="card-body text-center"><h5 class="card-title">${a.title}</h5></div>
+          </div>`;
+        c.appendChild(col);
+      });
+    }
+    function openAlbum(i){
+      const a=albums[i];
+      document.getElementById('albumSection').style.display='none';
+      document.getElementById('songSection').style.display='block';
+      document.getElementById('albumTitle').innerText=a.title;
+      const ul=document.getElementById('songList'); ul.innerHTML='';
+      a.songs.forEach(s=>{
+        const li=document.createElement('li');
+        li.className='list-group-item bg-dark text-light d-flex justify-content-between align-items-center';
+        li.innerHTML=`
+          ${s.name}
+          <div>
+            <span class="share-btn" onclick="shareSong('${s.url}')">🔗</span>
+            <span class="like-btn" onclick="likeSong(event,'${s.name}','${s.url}')">❤️</span>
+            <button class="btn btn-sm btn-outline-light ms-2" onclick="playSong('${s.url}')">▶️</button>
+          </div>`;
+        ul.appendChild(li);
+      });
+    }
+
+    function playSong(u){document.getElementById('audioPlayer').src=u; document.getElementById('audioPlayer').play();}
+    function likeSong(e,n,u){ e.stopPropagation(); if(!likedSongs.find(x=>x.name===n)){ likedSongs.push({name:n,url:u}); e.target.classList.add('liked'); }}
+    function shareSong(url){
+      currentShareUrl = url;
+      document.getElementById('whatsappShare').href = 'https://wa.me/?text=' + encodeURIComponent(url);
+      document.getElementById('telegramShare').href = 'https://t.me/share/url?url=' + encodeURIComponent(url);
+      document.getElementById('emailShare').href    = 'mailto:?body=' + encodeURIComponent(url);
+      document.getElementById('copyMessage').style.display='none';
+      new bootstrap.Modal(document.getElementById('shareModal')).show();
+    }
+    function showLikedSongs(){
+      document.getElementById('albumSection').style.display='none';
+      document.getElementById('songSection').style.display='none';
+      document.getElementById('likedSection').style.display='block';
+      const ul=document.getElementById('likedList'); ul.innerHTML='';
+      likedSongs.forEach(s=>{
+        const li=document.createElement('li');
+        li.className='list-group-item bg-dark text-light d-flex justify-content-between';
+        li.innerHTML=`${s.name}<button class="btn btn-sm btn-outline-light" onclick="playSong('${s.url}')">▶️</button>`;
+        ul.appendChild(li);
+      });
+    }
+    function goBack(){ document.getElementById('songSection').style.display='none'; document.getElementById('albumSection').style.display='block'; }
+    function goBackToAlbums(){ document.getElementById('likedSection').style.display='none'; document.getElementById('albumSection').style.display='block'; }
+    function filterAlbums(){
+      const q=document.getElementById('albumSearchInput').value.toLowerCase();
+      document.querySelectorAll('.album-card').forEach(c=>c.parentElement.style.display=c.innerText.toLowerCase().includes(q)?'':'none');
+    }
+    function filterSongs(){
+      const q=document.getElementById('searchInput').value.toLowerCase();
+      document.querySelectorAll('#songList li').forEach(li=>li.style.display=li.innerText.toLowerCase().includes(q)?'':'none');
+    }
+    document.getElementById('themeToggle').onclick=()=>document.body.classList.toggle('light-theme');
+
+    // --- SHARE HANDLERS ---
+    let currentShareUrl = '';
+    function copyLink(){
+      navigator.clipboard.writeText(currentShareUrl).then(()=>{
+        document.getElementById('copyMessage').style.display='block';
+      });
+    }
+
+    // --- PLAYLIST HANDLERS ---
+    let playlists = [], activePlaylist = null;
+    function populatePlaylistUI(){
+      const list=document.getElementById('playlistList'); list.innerHTML='';
+      playlists.forEach((pl,i)=>{
+        const btn=document.createElement('button');
+        btn.type='button'; btn.className='list-group-item list-group-item-action';
+        btn.innerText=pl.name;
+        btn.onclick=()=>selectPlaylist(i);
+        list.appendChild(btn);
+      });
+    }
+    function startNewPlaylist(){ document.getElementById('newPlaylistDiv').style.display='block'; }
+    function createPlaylist(){
+      const name=document.getElementById('newPlaylistName').value.trim();
+      if(!name) return alert('Enter a playlist name');
+      playlists.push({ name, songs: [] });
+      document.getElementById('newPlaylistName').value='';
+      document.getElementById('newPlaylistDiv').style.display='none';
+      populatePlaylistUI();
+    }
+    function selectPlaylist(idx){
+      activePlaylist=idx;
+      document.querySelectorAll('#playlistList button').forEach((b,i)=>b.classList.toggle('active',i===idx));
+      const container=document.getElementById('allSongsCheckboxes'); container.innerHTML='';
+      albums.forEach((alb,ai)=>{
+        alb.songs.forEach((s,si)=>{
+          const div=document.createElement('div');
+          div.className='col-6';
+          div.innerHTML=`
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value="${ai}|${si}" id="cb_${ai}_${si}">
+              <label class="form-check-label text-light" for="cb_${ai}_${si}">
+                ${s.name} <small>(${alb.title})</small>
+              </label>
+            </div>`;
+          container.appendChild(div);
+        });
+      });
+      document.getElementById('selectSongsDiv').style.display='block';
+      refreshPlaylistContents();
+    }
+    function addToPlaylist(){
+      if(activePlaylist===null) return alert('Select a playlist first');
+      document.querySelectorAll('#allSongsCheckboxes input:checked').forEach(cb=>{
+        const [ai,si]=cb.value.split('|').map(Number);
+        const s=albums[ai].songs[si];
+        const pl=playlists[activePlaylist];
+        if(!pl.songs.find(x=>x.name===s.name)) pl.songs.push(s);
+        cb.checked=false;
+      });
+      refreshPlaylistContents();
+    }
+    function refreshPlaylistContents(){
+      const ul=document.getElementById('playlistSongsList'); ul.innerHTML='';
+      playlists[activePlaylist].songs.forEach(s=>{
+        const li=document.createElement('li');
+        li.className='list-group-item bg-dark text-light d-flex justify-content-between';
+        li.innerHTML=`${s.name}<button class="btn btn-sm btn-outline-light" onclick="playSong('${s.url}')">▶️</button>`;
+        ul.appendChild(li);
+      });
+      document.getElementById('showPlaylistSongs').style.display='block';
+    }
+
+    // --- FEEDBACK ---
+    document.getElementById('modalFeedbackForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      const txt=document.getElementById('modalFeedbackText').value.trim();
+      const msg=document.getElementById('modalFeedbackMessage');
+      if(txt){ msg.innerText='🎶 Thanks!'; this.reset(); }
+      else msg.innerText='⚠️ Please type something.';
+    });
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
